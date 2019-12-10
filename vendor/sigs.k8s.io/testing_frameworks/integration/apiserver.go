@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"sigs.k8s.io/testing_frameworks/integration/addr"
 	"sigs.k8s.io/testing_frameworks/integration/internal"
 )
 
@@ -15,6 +16,9 @@ type APIServer struct {
 	//
 	// If this is not specified, we default to a random free port on localhost.
 	URL *url.URL
+
+	// SecurePort is the additional secure port that the APIServer should listen on.
+	SecurePort int
 
 	// Path is the path to the apiserver binary.
 	//
@@ -67,6 +71,15 @@ type APIServer struct {
 // Start starts the apiserver, waits for it to come up, and returns an error,
 // if occurred.
 func (s *APIServer) Start() error {
+	if s.processState == nil {
+		if err := s.setProcessState(); err != nil {
+			return err
+		}
+	}
+	return s.processState.Start(s.Out, s.Err)
+}
+
+func (s *APIServer) setProcessState() error {
 	if s.EtcdURL == nil {
 		return fmt.Errorf("expected EtcdURL to be configured")
 	}
@@ -87,6 +100,14 @@ func (s *APIServer) Start() error {
 		return err
 	}
 
+	// Defaulting the secure port
+	if s.SecurePort == 0 {
+		s.SecurePort, _, err = addr.Suggest()
+		if err != nil {
+			return err
+		}
+	}
+
 	s.processState.HealthCheckEndpoint = "/healthz"
 
 	s.URL = &s.processState.URL
@@ -98,11 +119,7 @@ func (s *APIServer) Start() error {
 	s.processState.Args, err = internal.RenderTemplates(
 		internal.DoAPIServerArgDefaulting(s.Args), s,
 	)
-	if err != nil {
-		return err
-	}
-
-	return s.processState.Start(s.Out, s.Err)
+	return err
 }
 
 // Stop stops this process gracefully, waits for its termination, and cleans up
