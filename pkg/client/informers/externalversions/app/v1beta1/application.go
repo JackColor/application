@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,14 +21,14 @@ package v1beta1
 import (
 	time "time"
 
-	appv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
-	versioned "github.com/kubernetes-sigs/application/pkg/client/clientset/versioned"
-	internalinterfaces "github.com/kubernetes-sigs/application/pkg/client/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kubernetes-sigs/application/pkg/client/listers/app/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
+	appv1beta1 "sigs.k8s.io/application/pkg/apis/app/v1beta1"
+	versioned "sigs.k8s.io/application/pkg/client/clientset/versioned"
+	internalinterfaces "sigs.k8s.io/application/pkg/client/informers/externalversions/internalinterfaces"
+	v1beta1 "sigs.k8s.io/application/pkg/client/listers/app/v1beta1"
 )
 
 // ApplicationInformer provides access to a shared informer and lister for

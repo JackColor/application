@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,13 +23,13 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/kubernetes-sigs/application/pkg/client/clientset/versioned"
-	app "github.com/kubernetes-sigs/application/pkg/client/informers/externalversions/app"
-	internalinterfaces "github.com/kubernetes-sigs/application/pkg/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
+	versioned "sigs.k8s.io/application/pkg/client/clientset/versioned"
+	app "sigs.k8s.io/application/pkg/client/informers/externalversions/app"
+	internalinterfaces "sigs.k8s.io/application/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.

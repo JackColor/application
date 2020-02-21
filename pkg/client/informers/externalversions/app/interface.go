@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ limitations under the License.
 package app
 
 import (
-	v1beta1 "github.com/kubernetes-sigs/application/pkg/client/informers/externalversions/app/v1beta1"
-	internalinterfaces "github.com/kubernetes-sigs/application/pkg/client/informers/externalversions/internalinterfaces"
+	v1beta1 "sigs.k8s.io/application/pkg/client/informers/externalversions/app/v1beta1"
+	internalinterfaces "sigs.k8s.io/application/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to each of this group's versions.

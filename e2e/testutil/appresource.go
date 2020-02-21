@@ -1,18 +1,5 @@
-/*
-Copyright 2018 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2020 The Kubernetes Authors.
+// SPDX-License-Identifier: Apache-2.0
 
 package testutil
 
@@ -22,14 +9,15 @@ import (
 	"io"
 	"os"
 
-	applicationsv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	applicationsv1beta1 "sigs.k8s.io/application/pkg/apis/app/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// CreateApplication -  create application object
 func CreateApplication(kubeClient client.Client, ns string, relativePath string) error {
 	app, err := parseApplicationYaml(relativePath)
 	if err != nil {
@@ -40,7 +28,7 @@ func CreateApplication(kubeClient client.Client, ns string, relativePath string)
 	object := &applicationsv1beta1.Application{}
 	objectKey := types.NamespacedName{
 		Namespace: ns,
-		Name: app.Name,
+		Name:      app.Name,
 	}
 	err = kubeClient.Get(context.TODO(), objectKey, object)
 
@@ -62,6 +50,7 @@ func CreateApplication(kubeClient client.Client, ns string, relativePath string)
 	return nil
 }
 
+// DeleteApplication - delete application object
 func DeleteApplication(kubeClient client.Client, ns string, relativePath string) error {
 	app, err := parseApplicationYaml(relativePath)
 	if err != nil {
@@ -71,7 +60,7 @@ func DeleteApplication(kubeClient client.Client, ns string, relativePath string)
 	object := &applicationsv1beta1.Application{}
 	objectKey := types.NamespacedName{
 		Namespace: ns,
-		Name: app.Name,
+		Name:      app.Name,
 	}
 	err = kubeClient.Get(context.TODO(), objectKey, object)
 	if err != nil {
@@ -102,7 +91,7 @@ func parseApplicationYaml(relativePath string) (*applicationsv1beta1.Application
 		if out.GetKind() == "Application" {
 			var marshaled []byte
 			marshaled, err = out.MarshalJSON()
-			json.Unmarshal(marshaled, &app)
+			_ = json.Unmarshal(marshaled, &app)
 			break
 		}
 	}

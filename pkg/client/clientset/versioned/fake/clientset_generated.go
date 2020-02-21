@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,14 +19,14 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/kubernetes-sigs/application/pkg/client/clientset/versioned"
-	appv1beta1 "github.com/kubernetes-sigs/application/pkg/client/clientset/versioned/typed/app/v1beta1"
-	fakeappv1beta1 "github.com/kubernetes-sigs/application/pkg/client/clientset/versioned/typed/app/v1beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
+	clientset "sigs.k8s.io/application/pkg/client/clientset/versioned"
+	appv1beta1 "sigs.k8s.io/application/pkg/client/clientset/versioned/typed/app/v1beta1"
+	fakeappv1beta1 "sigs.k8s.io/application/pkg/client/clientset/versioned/typed/app/v1beta1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -41,7 +41,7 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 		}
 	}
 
-	cs := &Clientset{}
+	cs := &Clientset{tracker: o}
 	cs.discovery = &fakediscovery.FakeDiscovery{Fake: &cs.Fake}
 	cs.AddReactor("*", "*", testing.ObjectReaction(o))
 	cs.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
@@ -63,20 +63,20 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 type Clientset struct {
 	testing.Fake
 	discovery *fakediscovery.FakeDiscovery
+	tracker   testing.ObjectTracker
 }
 
 func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	return c.discovery
 }
 
+func (c *Clientset) Tracker() testing.ObjectTracker {
+	return c.tracker
+}
+
 var _ clientset.Interface = &Clientset{}
 
 // AppV1beta1 retrieves the AppV1beta1Client
 func (c *Clientset) AppV1beta1() appv1beta1.AppV1beta1Interface {
-	return &fakeappv1beta1.FakeAppV1beta1{Fake: &c.Fake}
-}
-
-// App retrieves the AppV1beta1Client
-func (c *Clientset) App() appv1beta1.AppV1beta1Interface {
 	return &fakeappv1beta1.FakeAppV1beta1{Fake: &c.Fake}
 }

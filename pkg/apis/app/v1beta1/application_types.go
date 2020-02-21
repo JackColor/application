@@ -1,22 +1,12 @@
-/*
-Copyright 2018 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2020 The Kubernetes Authors.
+// SPDX-License-Identifier: Apache-2.0
 
 package v1beta1
 
 import (
+	"regexp"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -89,7 +79,9 @@ type ApplicationSpec struct {
 	AddOwnerRef bool `json:"addOwnerRef,omitempty"`
 
 	// Info contains human readable key,value pairs for the Application.
-	Info []InfoItem `json:"info,omitempty"`
+	// +patchStrategy=merge
+	// +patchMergeKey=name
+	Info []InfoItem `json:"info,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
 	// AssemblyPhase represents the current phase of the application's assembly.
 	// An empty value is equivalent to "Succeeded".
@@ -97,14 +89,12 @@ type ApplicationSpec struct {
 }
 
 // ComponentList is a generic status holder for the top level resource
-// +k8s:deepcopy-gen=true
 type ComponentList struct {
 	// Object status array for all matching objects
 	Objects []ObjectStatus `json:"components,omitempty"`
 }
 
 // ObjectStatus is a generic status holder for objects
-// +k8s:deepcopy-gen=true
 type ObjectStatus struct {
 	// Link to object
 	Link string `json:"link,omitempty"`
@@ -122,7 +112,6 @@ type ObjectStatus struct {
 type ConditionType string
 
 // Condition describes the state of an object at a certain point.
-// +k8s:deepcopy-gen=true
 type Condition struct {
 	// Type of condition.
 	Type ConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=StatefulSetConditionType"`
@@ -156,6 +145,9 @@ type ApplicationStatus struct {
 	// Resources embeds a list of object statuses
 	// +optional
 	ComponentList `json:",inline,omitempty"`
+	// ComponentsReady: status of the components in the format ready/total
+	// +optional
+	ComponentsReady string `json:"componentsReady,omitempty"`
 }
 
 // ImageSpec contains information about an image used as an icon.
@@ -270,6 +262,8 @@ type ServiceSelector struct {
 	Port *int32 `json:"port,omitempty"`
 	// The optional HTTP path.
 	Path string `json:"path,omitempty"`
+	// Protocol for the service
+	Protocol string `json:"protocol,omitempty"`
 }
 
 // IngressSelector selects an Ingress.
@@ -280,9 +274,11 @@ type IngressSelector struct {
 	Host string `json:"host,omitempty"`
 	// The optional HTTP path.
 	Path string `json:"path,omitempty"`
+	// Protocol for the ingress
+	Protocol string `json:"protocol,omitempty"`
 }
 
-// ApplicationAssemblyPhase tracks the Application CRD phases: pending, succeded, failed
+// ApplicationAssemblyPhase tracks the Application CRD phases: pending, succeeded, failed
 type ApplicationAssemblyPhase string
 
 // Constants
@@ -300,10 +296,16 @@ const (
 )
 
 // +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:categories=all,shortName=app
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Type",type=string,description="The type of the application",JSONPath=`.spec.descriptor.type`,priority=0
+// +kubebuilder:printcolumn:name="Version",type=string,description="The creation date",JSONPath=`.spec.descriptor.version`,priority=0
+// +kubebuilder:printcolumn:name="Owner",type=boolean,description="The application object owns the matched resources",JSONPath=`.spec.addOwnerRef`,priority=0
+// +kubebuilder:printcolumn:name="Ready",type=string,description="Numbers of components ready",JSONPath=`.status.componentsReady`,priority=0
+// +kubebuilder:printcolumn:name="Age",type=date,description="The creation date",JSONPath=`.metadata.creationTimestamp`,priority=0
 
 // Application is the Schema for the applications API
-// +k8s:openapi-gen=true
 type Application struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -312,7 +314,7 @@ type Application struct {
 	Status ApplicationStatus `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // ApplicationList contains a list of Application
 type ApplicationList struct {
@@ -323,4 +325,19 @@ type ApplicationList struct {
 
 func init() {
 	SchemeBuilder.Register(&Application{}, &ApplicationList{})
+}
+
+// StripVersion the version part of gv
+func StripVersion(gv string) string {
+	if gv == "" {
+		return gv
+	}
+
+	re := regexp.MustCompile(`^[vV][0-9].*`)
+	// If it begins with only version, (group is nil), return empty string which maps to core group
+	if re.MatchString(gv) {
+		return ""
+	}
+
+	return strings.Split(gv, "/")[0]
 }

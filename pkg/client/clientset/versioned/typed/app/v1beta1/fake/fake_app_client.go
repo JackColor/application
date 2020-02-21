@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	v1beta1 "github.com/kubernetes-sigs/application/pkg/client/clientset/versioned/typed/app/v1beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
+	v1beta1 "sigs.k8s.io/application/pkg/client/clientset/versioned/typed/app/v1beta1"
 )
 
 type FakeAppV1beta1 struct {

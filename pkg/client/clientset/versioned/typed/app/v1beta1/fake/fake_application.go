@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ limitations under the License.
 package fake
 
 import (
-	v1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
+	v1beta1 "sigs.k8s.io/application/pkg/apis/app/v1beta1"
 )
 
 // FakeApplications implements ApplicationInterface
@@ -34,9 +34,9 @@ type FakeApplications struct {
 	ns   string
 }
 
-var applicationsResource = schema.GroupVersionResource{Group: "app.k8s.io", Version: "v1beta1", Resource: "applications"}
+var applicationsResource = schema.GroupVersionResource{Group: "app", Version: "v1beta1", Resource: "applications"}
 
-var applicationsKind = schema.GroupVersionKind{Group: "app.k8s.io", Version: "v1beta1", Kind: "Application"}
+var applicationsKind = schema.GroupVersionKind{Group: "app", Version: "v1beta1", Kind: "Application"}
 
 // Get takes name of the application, and returns the corresponding application object, and an error if there is any.
 func (c *FakeApplications) Get(name string, options v1.GetOptions) (result *v1beta1.Application, err error) {

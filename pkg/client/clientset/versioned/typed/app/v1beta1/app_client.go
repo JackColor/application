@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
-	"github.com/kubernetes-sigs/application/pkg/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
+	v1beta1 "sigs.k8s.io/application/pkg/apis/app/v1beta1"
+	"sigs.k8s.io/application/pkg/client/clientset/versioned/scheme"
 )
 
 type AppV1beta1Interface interface {
@@ -30,7 +30,7 @@ type AppV1beta1Interface interface {
 	ApplicationsGetter
 }
 
-// AppV1beta1Client is used to interact with features provided by the app.k8s.io group.
+// AppV1beta1Client is used to interact with features provided by the app group.
 type AppV1beta1Client struct {
 	restClient rest.Interface
 }

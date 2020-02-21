@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ package v1beta1
 import (
 	"time"
 
-	v1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
-	scheme "github.com/kubernetes-sigs/application/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
+	v1beta1 "sigs.k8s.io/application/pkg/apis/app/v1beta1"
+	scheme "sigs.k8s.io/application/pkg/client/clientset/versioned/scheme"
 )
 
 // ApplicationsGetter has a method to return a ApplicationInterface.

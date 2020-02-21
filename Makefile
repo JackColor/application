@@ -1,63 +1,266 @@
+# Copyright 2019 The Kubernetes Authors.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Makefile for application
 
-# Image URL to use all building/pushing image targets
-IMG ?= controller:latest
 
-.PHONY: test manager run debug install deploy manifests fmt vet generate docker-build docker-push
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:trivialVersions=true"
 
-all: test manager
+# Releases should modify and double check these vars.
+ARCH ?= amd64
+ALL_ARCH = amd64 arm arm64 ppc64le s390x
+IMAGE_NAME ?= kubernetes-application-$(ARCH)
+TAG ?= dev
+REGISTRY ?= gcr.io/$(shell gcloud config get-value project)
+CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME):$(TAG)
+
+# Directories.
+TOOLS_DIR := $(shell pwd)/hack/tools
+TOOLBIN := $(TOOLS_DIR)/bin
+
+# Allow overriding manifest generation destination directory
+MANIFEST_ROOT ?= config
+CRD_ROOT ?= $(MANIFEST_ROOT)/crd/bases
+WEBHOOK_ROOT ?= $(MANIFEST_ROOT)/webhook
+RBAC_ROOT ?= $(MANIFEST_ROOT)/rbac
+COVER_FILE ?= cover.out
+
+
+.DEFAULT_GOAL := all
+.PHONY: all
+all: generate fix vet fmt manifests test lint license misspell tidy bin/manager
+
+## --------------------------------------
+## Tooling Binaries
+## --------------------------------------
+
+
+$(TOOLBIN)/controller-gen:
+	GOBIN=$(TOOLBIN) GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5
+
+$(TOOLBIN)/golangci-lint:
+	GOBIN=$(TOOLBIN) GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6
+
+$(TOOLBIN)/mockgen:
+	GOBIN=$(TOOLBIN) GO111MODULE=on go get github.com/golang/mock/mockgen@v1.3.1
+
+$(TOOLBIN)/conversion-gen:
+	GOBIN=$(TOOLBIN) GO111MODULE=on go get k8s.io/code-generator/cmd/conversion-gen@v0.17.0
+
+$(TOOLBIN)/kubebuilder $(TOOLBIN)/etcd $(TOOLBIN)/kube-apiserver $(TOOLBIN)/kubectl:
+	cd $(TOOLS_DIR); ./install_kubebuilder.sh
+
+$(TOOLBIN)/kustomize:
+	cd $(TOOLS_DIR); ./install_kustomize.sh
+
+$(TOOLBIN)/kind:
+	GOBIN=$(TOOLBIN) GO111MODULE=on go get sigs.k8s.io/kind@v0.6.0
+
+$(TOOLBIN)/addlicense:
+	GOBIN=$(TOOLBIN) GO111MODULE=on go get github.com/google/addlicense
+
+$(TOOLBIN)/misspell:
+	GOBIN=$(TOOLBIN) GO111MODULE=on go get github.com/client9/misspell/cmd/misspell@v0.3.4
+
+.PHONY: install-tools
+install-tools: \
+	$(TOOLBIN)/controller-gen \
+	$(TOOLBIN)/golangci-lint \
+	$(TOOLBIN)/mockgen \
+	$(TOOLBIN)/conversion-gen \
+	$(TOOLBIN)/kubebuilder \
+	$(TOOLBIN)/kustomize \
+	$(TOOLBIN)/addlicense \
+	$(TOOLBIN)/misspell \
+	$(TOOLBIN)/kind
+
+## --------------------------------------
+## Tests
+## --------------------------------------
 
 # Run tests
-test: generate fmt vet manifests
-	go test ./pkg/... ./cmd/... -coverprofile cover.out
+.PHONY: test
+test: $(TOOLBIN)/etcd $(TOOLBIN)/kube-apiserver $(TOOLBIN)/kubectl
+	TEST_ASSET_KUBECTL=$(TOOLBIN)/kubectl \
+	TEST_ASSET_KUBE_APISERVER=$(TOOLBIN)/kube-apiserver \
+	TEST_ASSET_ETCD=$(TOOLBIN)/etcd \
+	go test -v ./pkg/... ./controllers/... -coverprofile $(COVER_FILE)
+
+# Run e2e-tests
+K8S_VERSION := "v1.16.4"
+
+.PHONY: e2e-setup
+e2e-setup: $(TOOLBIN)/kind
+	KUBECONFIG=$(shell $(TOOLBIN)/kind get kubeconfig-path --name="kind") \
+	$(TOOLBIN)/kind create cluster \
+	 -v 4 --retain --wait=1m \
+	 --config e2e/kind-config.yaml \
+	 --image=kindest/node:$(K8S_VERSION)
+
+.PHONY: e2e-cleanup
+e2e-cleanup: $(TOOLBIN)/kind
+	$(TOOLBIN)/kind delete cluster
+
+.PHONY: e2e-test
+e2e-test: generate fmt vet manifests $(TOOLBIN)/kind $(TOOLBIN)/kustomize $(TOOLBIN)/kubectl
+	go test -v ./e2e/main_test.go
+
+## --------------------------------------
+## Build and run
+## --------------------------------------
 
 # Build manager binary
-manager: generate fmt vet
-	go build -o bin/manager github.com/kubernetes-sigs/application/cmd/manager
+bin/manager: main.go generate fmt vet manifests
+	go build -o bin/manager main.go
 
-# Run using the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet
-	go run ./cmd/manager/main.go
+# Run against the configured Kubernetes cluster in ~/.kube/config
+.PHONY: runbg
+runbg: bin/manager
+	bin/manager --metrics-addr ":8083" >& manager.log & echo $$! > manager.pid
+
+# Run against the configured Kubernetes cluster in ~/.kube/config
+.PHONY: run
+run: bin/manager
+	bin/manager
 
 # Debug using the configured Kubernetes cluster in ~/.kube/config
-debug: generate fmt vet
-	dlv debug cmd/manager/main.go
+.PHONY: debug
+debug: generate fmt vet manifests
+	dlv debug ./main.go
+
+## --------------------------------------
+## Code maintenance
+## --------------------------------------
+
+.PHONY: fmt
+fmt:
+	go fmt ./pkg/... ./controllers/...
+
+.PHONY: vet
+vet:
+	go vet ./pkg/... ./controllers/...
+
+.PHONY: fix
+fix:
+	go fix ./pkg/... ./controllers/...
+
+.PHONY: license
+license: $(TOOLBIN)/addlicense
+	$(TOOLBIN)/addlicense  -y $(shell date +"%Y") -c "The Kubernetes Authors." -f LICENSE_TEMPLATE .
+
+.PHONY: tidy
+tidy:
+	go mod tidy
+
+.PHONY: lint
+lint: $(TOOLBIN)/golangci-lint
+	$(TOOLBIN)/golangci-lint run ./...
+
+.PHONY: misspell
+misspell: $(TOOLBIN)/misspell
+	$(TOOLBIN)/misspell ./**
+
+.PHONY: misspell-fix
+misspell-fix: $(TOOLBIN)/misspell
+	$(TOOLBIN)/misspell -w ./**
+
+
+## --------------------------------------
+## Deploying
+## --------------------------------------
 
 # Install CRDs into a cluster
-install: manifests
-	kubectl apply -f config/crds
+.PHONY: install
+install: $(TOOLBIN)/kustomize $(TOOLBIN)/kubectl
+	$(TOOLBIN)/kustomize build config/crd| $(TOOLBIN)/kubectl apply -f -
+
+# Uninstall CRDs from a cluster
+.PHONY: uninstall
+uninstall: $(TOOLBIN)/kustomize $(TOOLBIN)/kubectl
+	$(TOOLBIN)/kustomize build config/crd| $(TOOLBIN)/kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
-	kubectl apply -f config/crds
-	kustomize build config/default | kubectl apply -f -
-
+.PHONY: deploy
+deploy: $(TOOLBIN)/kustomize
+	cd config/manager && $(TOOLBIN)/kustomize edit set image controller=$(CONTROLLER_IMG)
+	$(TOOLBIN)/kustomize build config/default | $(TOOLBIN)/kubectl apply -f -
 
 # unDeploy controller in the configured Kubernetes cluster in ~/.kube/config
-undeploy: manifests
-	kustomize build config/default | kubectl delete -f -
+.PHONY: undeploy
+undeploy: $(TOOLBIN)/kustomize $(TOOLBIN)/kubectl
+	$(TOOLBIN)/kustomize build config/default | $(TOOLBIN)/kubectl delete -f -
+
+# Deploy wordpress
+.PHONY: deploy-wordpress
+deploy-wordpress: $(TOOLBIN)/kustomize $(TOOLBIN)/kubectl
+	mkdir -p /tmp/data1 /tmp/data2
+	$(TOOLBIN)/kustomize build docs/examples/wordpress | $(TOOLBIN)/kubectl apply -f -
+
+# Uneploy wordpress
+.PHONY: undeploy-wordpress
+undeploy-wordpress: $(TOOLBIN)/kustomize $(TOOLBIN)/kubectl
+	$(TOOLBIN)/kustomize build docs/examples/wordpress | $(TOOLBIN)/kubectl delete -f -
+	# $(TOOLBIN)/kubectl delete pvc --all
+	# sudo rm -fr /tmp/data1 /tmp/data2
+
+## --------------------------------------
+## Generating
+## --------------------------------------
+
+.PHONY: generate
+generate: ## Generate code
+	$(MAKE) generate-go
+	$(MAKE) manifests
+
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests:
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
+.PHONY: manifests
+manifests: $(TOOLBIN)/controller-gen
+	$(TOOLBIN)/controller-gen \
+		$(CRD_OPTIONS) \
+		rbac:roleName=manager-role \
+		paths=./... \
+		output:crd:artifacts:config=$(CRD_ROOT) \
+		output:crd:dir=$(CRD_ROOT) \
+		output:webhook:dir=$(WEBHOOK_ROOT) \
+		webhook
 
-# Run go fmt against code
-fmt:
-	go fmt ./pkg/... ./cmd/...
+.PHONY: generate-go
+generate-go: $(TOOLBIN)/controller-gen $(TOOLBIN)/conversion-gen  $(TOOLBIN)/mockgen
+	go generate ./pkg/... ./controllers/...
+	$(TOOLBIN)/controller-gen \
+		paths=./pkg/apis/app/v1beta1/... \
+		object:headerFile=./hack/boilerplate.go.txt
 
-# Run go vet against code
-vet:
-	go vet ./pkg/... ./cmd/...
+## --------------------------------------
+## Docker
+## --------------------------------------
 
-# Generate code
-generate:
-	go generate ./pkg/... ./cmd/...
-
-# Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
+.PHONY: docker-build
+docker-build: test $(TOOLBIN)/kustomize ## Build the docker image for controller-manager
+	docker build --network=host --pull --build-arg ARCH=$(ARCH) . -t $(CONTROLLER_IMG)
 	@echo "updating kustomize image patch file for manager resource"
-	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
+	cd config/manager && $(TOOLBIN)/kustomize edit set image controller=$(CONTROLLER_IMG)
 
-# Push the docker image
-docker-push:
-	docker push ${IMG}
+.PHONY: docker-push
+docker-push: ## Push the docker image
+	docker push $(CONTROLLER_IMG)
+
+.PHONY: clean
+clean:
+	go clean --cache
+	rm -f $(COVER_FILE)
+	rm -f $(TOOLBIN)/kustomize
+	rm -f $(TOOLBIN)/goimports
+	rm -f $(TOOLBIN)/golangci-lint
+	rm -f $(TOOLBIN)/controller-gen
+	rm -f $(TOOLBIN)/conversion-gen
+	rm -f $(TOOLBIN)/etcd
+	rm -f $(TOOLBIN)/kube-apiserver
+	rm -f $(TOOLBIN)/kubebuilder
+	rm -f $(TOOLBIN)/addlicense
+	rm -f $(TOOLBIN)/kubectl
+	rm -f $(TOOLBIN)/kustomize
+	rm -f $(TOOLBIN)/misspell
+	rm -f $(TOOLBIN)/mockgen

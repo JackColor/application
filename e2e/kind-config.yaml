@@ -1,0 +1,11 @@
+# Copyright 2020 The Kubernetes Authors.
+# SPDX-License-Identifier: Apache-2.0
+
+
+kind: Cluster
+apiVersion: kind.sigs.k8s.io/v1alpha3
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker
+  - role: worker
